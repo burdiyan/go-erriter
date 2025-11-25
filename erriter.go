@@ -8,7 +8,7 @@ import (
 	"iter"
 )
 
-// SeqFunc is similar to a range function but allows returning an error.
+// SeqFunc is similar to a standard range function but allows returning an error.
 // As Go doesn't allow instantiating generic function types without explicit type parameters,
 // it's more convenient to use [Seq] function to create a [SeqFunc].
 type SeqFunc[T any] func(yield func(T) bool) error
@@ -20,7 +20,9 @@ type SeqFunc[T any] func(yield func(T) bool) error
 // handle any possible cleanup errors, even if they need to return
 // from the iteration loop early.
 //
-// The usage pattern for this is as follows:
+// ## Consumer Pattern
+//
+// The usage pattern for consuming a Seq is as follows:
 //
 //	func someFunc(it erriter.Seq[string]) (err error) {
 //	    items, discard, check := it.All()
@@ -47,6 +49,38 @@ type SeqFunc[T any] func(yield func(T) bool) error
 //	    // Maybe more code here...
 //
 //	    return nil
+//	}
+//
+// ## Producer Pattern
+//
+// To create a Seq, use the Seq function with a callback that yields values and returns an error:
+//
+//	func queryRows(db *Database) erriter.Seq[string] {
+//	    return erriter.Seq(func(yield func(string) bool) error {
+//	        // Open a database connection/cursor
+//	        cursor, err := db.OpenCursor()
+//	        if err != nil {
+//	            return err
+//	        }
+//	        // Ensure cleanup happens even if yield returns false (caller stopped iterating)
+//	        defer func() {
+//	            if closeErr := cursor.Close(); closeErr != nil {
+//	                err = errors.Join(err, closeErr)
+//	            }
+//	        }()
+//
+//	        // Iterate and yield results
+//	        for cursor.Next() {
+//	            row := cursor.Row()
+//	            // If yield returns false, the caller stopped iterating
+//	            if !yield(row) {
+//	                break
+//	            }
+//	        }
+//
+//	        // Return any errors from iteration or from the query itself
+//	        return cursor.Err()
+//	    })
 //	}
 func Seq[T any](fn func(yield func(T) bool) error) SeqFunc[T] {
 	return SeqFunc[T](fn)

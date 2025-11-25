@@ -22,6 +22,8 @@ go get github.com/burdiyan/go-erriter
 
 ## Usage
 
+### Consuming a Seq
+
 `Seq[T]` is similar to `iter.Seq` but allows returning an error. To iterate over a `Seq`, use the `All()` method which returns three values: an iterator, a discard function, and a check function.
 
 ```go
@@ -45,6 +47,41 @@ func someFunc(it erriter.Seq[string]) (err error) {
     }
 
     return nil
+}
+```
+
+### Producing a Seq
+
+To create a `Seq`, use the `Seq()` function with a callback that yields values and returns an error. The callback is responsible for cleanup and should return any error that occurred during iteration.
+
+```go
+// Example: creating a Seq that reads from a fake database connection
+func queryDatabase(db *Database, query string) erriter.Seq[string] {
+    return erriter.Seq(func(yield func(string) bool) error {
+        // Open a connection (or cursor)
+        cursor, err := db.Query(query)
+        if err != nil {
+            return err
+        }
+        // Ensure cleanup happens, even if yield returns false
+        defer func() {
+            if closeErr := cursor.Close(); closeErr != nil {
+                err = errors.Join(err, closeErr)
+            }
+        }()
+
+        // Iterate and yield results
+        for cursor.Next() {
+            value := cursor.Value()
+            // If yield returns false, the caller stopped iterating
+            if !yield(value) {
+                break
+            }
+        }
+
+        // Return any errors from iteration
+        return cursor.Err()
+    })
 }
 ```
 
