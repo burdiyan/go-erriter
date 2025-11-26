@@ -41,7 +41,7 @@ func TestSeq(t *testing.T) {
 }
 
 func doTest(n int) (out []int, err error) {
-	it := Seq(func(yield func(int) bool) (err error) {
+	it := Make(func(yield func(int) bool) (err error) {
 		if !yield(1) {
 			return err
 		}

@@ -8,11 +8,6 @@ import (
 	"iter"
 )
 
-// SeqFunc is similar to a standard range function but allows returning an error.
-// As Go doesn't allow instantiating generic function types without explicit type parameters,
-// it's more convenient to use [Seq] function to create a [SeqFunc].
-type SeqFunc[T any] func(yield func(T) bool) error
-
 // Seq is like [iter.Seq] but is allowed to return an error.
 // To actually range over Seq users must call [Seq.All],
 // which returns a standard iterator over the values,
@@ -53,10 +48,10 @@ type SeqFunc[T any] func(yield func(T) bool) error
 //
 // ## Producer Pattern
 //
-// To create a Seq, use the Seq function with a callback that yields values and returns an error:
+// To create a Seq, use the [Make] function with a callback that yields values and returns an error:
 //
 //	func queryRows(db *Database) erriter.Seq[string] {
-//	    return erriter.Seq(func(yield func(string) bool) error {
+//	    return erriter.Make(func(yield func(string) bool) error {
 //	        // Open a database connection/cursor
 //	        cursor, err := db.OpenCursor()
 //	        if err != nil {
@@ -82,8 +77,14 @@ type SeqFunc[T any] func(yield func(T) bool) error
 //	        return cursor.Err()
 //	    })
 //	}
-func Seq[T any](fn func(yield func(T) bool) error) SeqFunc[T] {
-	return SeqFunc[T](fn)
+type Seq[T any] func(yield func(T) bool) error
+
+// Make is a convenience function for creating a [Seq].
+// As Go can't infer generic type parameters on function types,
+// but can infer them on function values, using this function lets you wrap the literal
+// iteration function without having to specify the type parameter explicitly.
+func Make[T any](fn func(yield func(T) bool) error) Seq[T] {
+	return Seq[T](fn)
 }
 
 // All returns an iterator, a discard function, and a check function.
@@ -91,7 +92,7 @@ func Seq[T any](fn func(yield func(T) bool) error) SeqFunc[T] {
 // The discard function should be deferred and will handle any cleanup errors.
 // The check function should be called at the end of the iteration.
 // Calling check more than once is a bug and will panic.
-func (iter SeqFunc[T]) All() (it iter.Seq[T], discard func(*error), check func() error) {
+func (iter Seq[T]) All() (it iter.Seq[T], discard func(*error), check func() error) {
 	var err error
 	var checkCalled bool
 

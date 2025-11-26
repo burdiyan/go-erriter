@@ -52,12 +52,12 @@ func someFunc(it erriter.Seq[string]) (err error) {
 
 ### Producing a Seq
 
-To create a `Seq`, use the `Seq()` function with a callback that yields values and returns an error. The callback is responsible for cleanup and should return any error that occurred during iteration.
+To create a `Seq`, use the `Make()` function with a callback that yields values and returns an error. The callback is responsible for cleanup and should return any error that occurred during iteration.
 
 ```go
 // Example: creating a Seq that reads from a fake database connection
 func queryDatabase(db *Database, query string) erriter.Seq[string] {
-    return erriter.Seq(func(yield func(string) bool) error {
+    return erriter.Make(func(yield func(string) bool) error {
         // Open a connection (or cursor)
         cursor, err := db.Query(query)
         if err != nil {
